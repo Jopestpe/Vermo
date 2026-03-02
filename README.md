@@ -6,7 +6,9 @@ Vermo(**Ver mo**delos) é uma página para carregar e visualizar modelos 3d
 - ✅ Carregar modelos .gltf
 - ✅ Vizualizar modelos .gltf
 
-# Desenvolver Vermo
+## A Fazer
+* Troca de modelo carregado
+* Controle de escala do modelo
 
 ## Dependencias [Bevy](https://bevyengine.org/) (Debian)
 
