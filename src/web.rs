@@ -26,13 +26,58 @@ pub mod fila_arquivos_web {
     }
 }
 
+pub mod fila_comandos_web {
+    use std::sync::Mutex;
+
+    pub enum ComandoWeb {
+        Rotacao(f32, f32, f32),
+        Intensidade(f32),
+        Cor(f32, f32, f32),
+        Escala(f32),
+    }
+
+    static FILA: Mutex<Vec<ComandoWeb>> = Mutex::new(Vec::new());
+
+    pub fn enfileirar(cmd: ComandoWeb) {
+        if let Ok(mut fila) = FILA.lock() {
+            fila.push(cmd);
+        }
+    }
+
+    pub fn esvaziar() -> Vec<ComandoWeb> {
+        FILA.lock()
+            .map(|mut fila| fila.drain(..).collect())
+            .unwrap_or_default()
+    }
+}
+
 #[wasm_bindgen]
-pub fn bevy_arquivo_recebido(bytes: js_sys::Uint8Array) {
+pub fn bevy_carregar_modelo(bytes: js_sys::Uint8Array) {
     if bytes.length() > TAMANHO_MAXIMO_BYTES {
         web_sys::console::error_1(&"Arquivo muito grande (limite: 500MB)".into());
         return;
     }
     fila_arquivos_web::enfileirar(bytes.to_vec());
+}
+
+#[wasm_bindgen]
+pub fn bevy_definir_luz_rotacao(x: f32, y: f32, z: f32) {
+    fila_comandos_web::enfileirar(fila_comandos_web::ComandoWeb::Rotacao(x, y, z));
+}
+
+#[wasm_bindgen]
+pub fn bevy_definir_luz_intensidade(v: f32) {
+    fila_comandos_web::enfileirar(fila_comandos_web::ComandoWeb::Intensidade(v));
+}
+
+#[wasm_bindgen]
+pub fn bevy_definir_luz_cor(r: f32, g: f32, b: f32) {
+    fila_comandos_web::enfileirar(fila_comandos_web::ComandoWeb::Cor(r, g, b));
+}
+
+#[wasm_bindgen]
+pub fn bevy_definir_modelo_escala(v: f32) {
+    fila_comandos_web::enfileirar(fila_comandos_web::ComandoWeb::Escala(v));
 }
 
 #[derive(Default, Clone)]

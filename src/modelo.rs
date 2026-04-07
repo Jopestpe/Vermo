@@ -1,22 +1,25 @@
 use bevy::prelude::*;
-use crate::ui::BotaoAbrirArquivo;
-
-#[cfg(target_arch = "wasm32")]
-use crate::web::LeitorModeloWeb;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
+use crate::web::{LeitorModeloWeb, fila_arquivos_web, fila_comandos_web};
+use crate::web::fila_comandos_web::ComandoWeb;
 
 #[derive(Resource, Default)]
 pub struct EstadoModelo {
     pub precisa_carregar: bool,
     pub entidade_atual: Option<Entity>,
+    pub i: u32,
 }
 
 pub fn carregar_modelo_pendente(
     mut comandos: Commands,
     mut estado: ResMut<EstadoModelo>,
     servidor_assets: Res<AssetServer>,
+    leitor: Res<LeitorModeloWeb>,
 ) {
+    for arquivo in fila_arquivos_web::esvaziar() {
+        leitor.0.substituir_modelo(arquivo.bytes);
+        estado.precisa_carregar = true;
+    }
+
     if !estado.precisa_carregar {
         return;
     }
@@ -26,11 +29,9 @@ pub fn carregar_modelo_pendente(
         comandos.entity(entidade).despawn();
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let handle_modelo = servidor_assets.load::<Scene>("modelo_temp.glb#Scene0");
-
-    #[cfg(target_arch = "wasm32")]
-    let handle_modelo = servidor_assets.load::<Scene>("mem://modelo.glb#Scene0");
+    estado.i += 1;
+    let path = format!("mem://{}.glb#Scene0", estado.i);
+    let handle_modelo = servidor_assets.load::<Scene>(path);
 
     let nova_entidade = comandos
         .spawn((SceneRoot(handle_modelo), Transform::default()))
@@ -39,41 +40,23 @@ pub fn carregar_modelo_pendente(
     estado.entidade_atual = Some(nova_entidade);
 }
 
-pub fn ao_clicar_botao_abrir(
-    #[cfg(not(target_arch = "wasm32"))]
-    interacoes: Query<&Interaction, (Changed<Interaction>, With<BotaoAbrirArquivo>)>,
-    #[cfg(target_arch = "wasm32")]
-    interacoes: Query<&Interaction, (Changed<Interaction>, With<BotaoAbrirArquivo>)>,
-    mut estado: ResMut<EstadoModelo>,
-    #[cfg(target_arch = "wasm32")]
-    leitor: Res<LeitorModeloWeb>,
+pub fn aplicar_comandos_luz(
+    mut params: ParamSet<(
+        Query<(&mut DirectionalLight, &mut Transform)>,
+        Query<&mut Transform, With<SceneRoot>>,
+    )>,
 ) {
-    #[cfg(target_arch = "wasm32")]
-    for arquivo in crate::web::fila_arquivos_web::esvaziar() {
-        leitor.0.substituir_modelo(arquivo.bytes);
-        estado.precisa_carregar = true;
-    }
-
-    for interacao in &interacoes {
-        if *interacao == Interaction::Pressed {
-            #[cfg(not(target_arch = "wasm32"))]
-            if let Some(caminho_arquivo) = rfd::FileDialog::new()
-                .add_filter("Modelos 3D", &["gltf", "glb"])
-                .pick_file()
-            {
-                let destino = std::path::PathBuf::from("assets/modelo_temp.glb");
-                if let Err(erro) = std::fs::copy(&caminho_arquivo, &destino) {
-                    eprintln!("Erro ao copiar arquivo: {erro}");
-                    return;
-                }
-                estado.precisa_carregar = true;
-            }
-
-            #[cfg(target_arch = "wasm32")]
-            if let Some(win) = web_sys::window() {
-                if let Ok(func) = js_sys::Reflect::get(&win, &"abrir_seletor_arquivo".into()) {
-                    if let Some(f) = func.dyn_ref::<js_sys::Function>() {
-                        let _ = f.call0(&win).ok();
+    for cmd in fila_comandos_web::esvaziar() {
+        let mut luz = params.p0();
+        if let Ok((mut luz_dir, mut transform)) = luz.single_mut() {
+            match cmd {
+                ComandoWeb::Rotacao(x, y, z) => transform.rotation = Quat::from_euler(EulerRot::XYZ, x, y, z),
+                ComandoWeb::Intensidade(v) => luz_dir.illuminance = v,
+                ComandoWeb::Cor(r, g, b) => luz_dir.color = Color::srgb(r, g, b),
+                ComandoWeb::Escala(v) => {
+                    let mut modelos = params.p1();
+                    if let Ok(mut tf) = modelos.single_mut() {
+                        tf.scale = Vec3::splat(v);
                     }
                 }
             }

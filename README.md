@@ -3,13 +3,7 @@ Vermo(**Ver mo**delos) é uma página para carregar e visualizar modelos 3d
 
 ### No Vermo é possível ⤵️
 
-- ✅ Carregar modelos .gltf
-- ✅ Vizualizar modelos .gltf
-
-## A fazer
-* Troca de modelo carregado
-* Controle de escala do modelo
-* Trocar UI para HTML
+- ✅ Vizualizar modelos .glb
 
 ## Dependencias [Bevy](https://bevyengine.org/) (Debian)
 
@@ -30,20 +24,6 @@ cargo install wasm-bindgen-cli
 * Criar script JS e WASM
 
 ```sh
-cargo build --release --target wasm32-unknown-unknown
-wasm-bindgen --target web --out-dir ./web ./target/wasm32-unknown-unknown/release/vermo.wasm
-```
-
-### Servidor 
-
-* Instalar servidor simples lib Cargo
-
-```sh
-cargo install basic-http-server
-```
-
-* Subir pasta web
-
-```sh
-basic-http-server ./web
+cargo build --release --target wasm32-unknown-unknown \
+&& wasm-bindgen --target web --out-dir ./web ./target/wasm32-unknown-unknown/release/vermo_bevy.wasm
 ```
